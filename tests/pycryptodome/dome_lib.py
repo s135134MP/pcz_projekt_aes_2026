@@ -1,5 +1,6 @@
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
+from Crypto.Util.Padding import pad, unpad
 import os
 
 def encrpyt_file_gcm(input_file, output_file, key):
@@ -9,6 +10,8 @@ def encrpyt_file_gcm(input_file, output_file, key):
         data = f.read()
 
     cipertext, tag =  aes.encrypt_and_digest(data)
+
+    print(len(aes.nonce))
 
     with open(output_file, "wb") as f:
         f.write(aes.nonce)
@@ -23,11 +26,41 @@ def decrypt_file_gcm(input_file, output_file, key):
 
     aes = AES.new(key, AES.MODE_GCM, nonce=nonce)
 
-    data = aes.decrypt_and_verify(cipertext, tag)
+    tag = tag[:-1] + bytes([tag[-1] ^ 0xFF])
+
+    try:
+        data = aes.decrypt_and_verify(cipertext, tag)
+
+        with open(output_file, "wb") as f:
+            f.write(data)
+    except ValueError as e:
+        print("decrypt_file_gcm error: ", e)
+
+def encrypt_file_cbc(input_file, output_file, key):
+    aes = AES.new(key, AES.MODE_CBC)
+
+    with open(input_file, "rb") as f:
+        data = f.read()
+
+    padded_data = pad(data, AES.block_size)
+    ciphertext = aes.encrypt(padded_data)
+
+    with open(output_file, "wb") as f:
+        f.write(aes.iv)
+        f.write(ciphertext)
+
+def decrypt_file_cbc(input_file, output_file, key):
+    with open(input_file, "rb") as f:
+        iv = f.read(16)
+        ciphertext = f.read()
+
+    aes = AES.new(key, AES.MODE_CBC, iv=iv)
+    padded_data = aes.decrypt(ciphertext)
+
+    data = unpad(padded_data, AES.block_size)
 
     with open(output_file, "wb") as f:
         f.write(data)
-
 
 def get_key(file_path, key_size):
     if os.path.exists(file_path):
