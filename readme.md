@@ -1,5 +1,5 @@
 
-# Projekt zespołowy PCz 2026 
+# Projekt zespołowy PCz 2026
 
 Implementacja i analiza algorytmu szyfrującego AES w różnych trybach pracy
 
