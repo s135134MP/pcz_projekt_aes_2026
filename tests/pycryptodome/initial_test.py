@@ -5,7 +5,7 @@ from utils.path import path
 def main():
     start = time.perf_counter()
     key = dome_lib.get_key(path("files/key.bin"), 32)
-    dome_lib.encrpyt_file_gcm(
+    dome_lib.encrypt_file_gcm(
         path("files/plik.txt"), 
         path("output/plik_dome.txt"), key)
     dome_lib.decrypt_file_gcm(

@@ -3,33 +3,29 @@ from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 import os
 
-def encrpyt_file_gcm(input_file, output_file, key):
+def encrypt_file_gcm(input_file, output_file, key):
     aes = AES.new(key, AES.MODE_GCM)
 
     with open(input_file, "rb") as f:
         data = f.read()
 
-    cipertext, tag =  aes.encrypt_and_digest(data)
-
-    print(len(aes.nonce))
+    ciphertext, tag =  aes.encrypt_and_digest(data)
 
     with open(output_file, "wb") as f:
         f.write(aes.nonce)
         f.write(tag)
-        f.write(cipertext)
+        f.write(ciphertext)
 
 def decrypt_file_gcm(input_file, output_file, key):
     with open(input_file, "rb") as f:
         nonce = f.read(16)
         tag = f.read(16)
-        cipertext = f.read()
+        ciphertext = f.read()
 
     aes = AES.new(key, AES.MODE_GCM, nonce=nonce)
 
-    tag = tag[:-1] + bytes([tag[-1] ^ 0xFF])
-
     try:
-        data = aes.decrypt_and_verify(cipertext, tag)
+        data = aes.decrypt_and_verify(ciphertext, tag)
 
         with open(output_file, "wb") as f:
             f.write(data)
