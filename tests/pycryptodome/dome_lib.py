@@ -5,6 +5,8 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 
+def encrypt_file_gcm(input_file, output_file, key):
+    aes = AES.new(key, AES.MODE_GCM)
 
 def ensure_directory(path):
     """Create the directory if it does not exist yet."""
