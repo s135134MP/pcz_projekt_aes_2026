@@ -32,6 +32,12 @@ def bytes_to_state(block):
 
     return [[block[row + 4 * column] for column in range(4)] for row in range(4)]
 
+def state_to_bytes(state):
+    return bytes(
+        state[row][col]
+        for col in range(4)
+        for row in range(4)
+    )
 
 def round_key_to_state(round_key):
     """Convert a 16-byte round key into the project state matrix."""
@@ -66,6 +72,8 @@ def xor_words(left, right):
     """XOR two 4-byte words."""
     return [left[index] ^ right[index] for index in range(4)]
 
+def SubBytes(state):
+    return [[S_BOX[value] for value in row] for row in state]
 
 def KeySchedule(key):
     """Expand an AES-128 key into 11 round keys."""
@@ -85,6 +93,28 @@ def KeySchedule(key):
 
     return [bytes(sum(words[index:index + 4], [])) for index in range(0, len(words), 4)]
 
+def getNk(key):
+    keySize = len(key) * 8
+
+    if keySize == 128:
+        return 4
+    elif keySize == 192:
+        return 6
+    elif keySize == 256:
+        return 8
+    else:
+        raise ValueError("Wrong key size")
+
+def getNr(key):
+    keySize = len(key) * 8
+    if keySize == 128:
+        return 10
+    elif keySize == 192:
+        return 12
+    elif keySize == 256:
+        return 14
+    else:
+        raise ValueError("Wrong key size")
 
 # Quick checks:
 # key = bytes.fromhex("000102030405060708090a0b0c0d0e0f")
