@@ -1,3 +1,5 @@
+import src.helpers as h
+
 S_BOX = (
   0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
   0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
@@ -272,19 +274,23 @@ def inv_sub_bytes(state):
     return [[INV_S_BOX[value] for value in row] for row in state]
 
 def key_schedule(key):
-    """Expand an AES-128 key into 11 round keys."""
-    if len(key) != 16:
-        raise ValueError("AES-128 key must contain exactly 16 bytes")
+    key = h.validate_aes_key(key)
+    nk = len(key) // 4
+    nr = h.get_round_number(key)
+    total_words = 4 * (nr + 1)
 
     words = [list(key[index:index + 4]) for index in range(0, len(key), 4)]
 
-    while len(words) < 44:
+    while len(words) < total_words:
         temp = words[-1][:]
+        word_index = len(words)
 
-        if len(words) % 4 == 0:
+        if word_index % nk == 0:
             temp = sub_word(rot_word(temp))
-            temp[0] ^= RCON[(len(words) // 4) - 1]
+            temp[0] ^= RCON[(word_index // nk) - 1]
+        elif nk > 6 and word_index % nk == 4:
+            temp = sub_word(temp)
 
-        words.append(xor_words(words[-4], temp))
+        words.append(xor_words(words[-nk], temp))
 
     return [bytes(sum(words[index:index + 4], [])) for index in range(0, len(words), 4)]
