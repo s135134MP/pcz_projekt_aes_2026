@@ -3,17 +3,22 @@ from utils.path import path
 
 def main ():
   # Testing the AES ECB mode
-  key = bytes.fromhex("2b7e151628aed2a6abf7158809cf4f3c")
   plaintext = bytes.fromhex("6bc1bee22e409f96e93d7e117393172a")
-  
-  aes_pcz = AES_PCZ(mode="ECB", key=key)
-  encrypt_result = aes_pcz.encrypt(plaintext)
-  decrypt_result = aes_pcz.decrypt(encrypt_result)
+  ecb_cases = [
+    ("AES-128", bytes.fromhex("2b7e151628aed2a6abf7158809cf4f3c")),
+    ("AES-192", bytes.fromhex("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b")),
+    ("AES-256", bytes.fromhex("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4")),
+  ]
 
-  if(decrypt_result == plaintext):
-    print("AES_ECB PASSED:", decrypt_result.hex(), "==", plaintext.hex());
-  else:
-    print("AES_ECB FAILED:", decrypt_result.hex(), "!=", plaintext.hex());
+  for label, key in ecb_cases:
+    aes_pcz = AES_PCZ(mode="ECB", key=key)
+    encrypt_result = aes_pcz.encrypt(plaintext)
+    decrypt_result = aes_pcz.decrypt(encrypt_result)
+
+    if(decrypt_result == plaintext):
+      print(label, "ECB PASSED:", decrypt_result.hex(), "==", plaintext.hex());
+    else:
+      print(label, "ECB FAILED:", decrypt_result.hex(), "!=", plaintext.hex());
 
   # Testing the AES CTR mode with fixed nonce and counter
   plaintext = bytes.fromhex("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710")
