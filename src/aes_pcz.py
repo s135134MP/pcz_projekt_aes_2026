@@ -298,13 +298,12 @@ class AES_PCZ:
     return b''.join(decrypted_blocks)
 
   def encrypt(self, bytes, counter = 0, nonce = "", aad: bytes = b'', iv: bytes = b''):
-
     if self.mode == "ECB":
-      self._prepare_data(data, add_pad=True)
+      self._prepare_data(bytes, add_pad=True)
       result = self._encrypt_ecb()
 
     elif self.mode == "CTR":
-      self._prepare_data(data, add_pad=False)
+      self._prepare_data(bytes, add_pad=False)
       counter = self._validate_counter(counter)
       nonce = self._validate_nonce(nonce)
 
