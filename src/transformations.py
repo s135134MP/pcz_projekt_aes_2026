@@ -294,3 +294,105 @@ def key_schedule(key):
         words.append(xor_words(words[-nk], temp))
 
     return [bytes(sum(words[index:index + 4], [])) for index in range(0, len(words), 4)]
+
+
+# ---------------------------------------------------------------------------
+# GCM – operacje w ciele GF(2^128)
+# ---------------------------------------------------------------------------
+# Wielomian nierozkładalny GCM: x^128 + x^7 + x^2 + x + 1
+# Reprezentacja: liczba całkowita 128-bitowa (MSB = współczynnik x^127)
+# ---------------------------------------------------------------------------
+
+def _bytes_to_int(b: bytes) -> int:
+    """Konwertuje 16 bajtów na 128-bitową liczbę całkowitą (big-endian)."""
+    return int.from_bytes(b, 'big')
+
+
+def _int_to_bytes(n: int) -> bytes:
+    """Konwertuje 128-bitową liczbę całkowitą na 16 bajtów (big-endian)."""
+    return n.to_bytes(16, 'big')
+
+
+def gcm_gmul(X: int, Y: int) -> int:
+    """
+    Mnożenie dwóch elementów w ciele GF(2^128) używane przez GCM.
+
+    Algorytm zgodny z NIST SP 800-38D, sekcja 6.3, Algorytm 1.
+
+    Wielomian redukujący: x^128 + x^7 + x^2 + x + 1
+    Reprezentacja: bit 0 liczby całkowitej odpowiada x^127 (MSB bajtu 0),
+    bit 127 odpowiada x^0 (LSB bajtu 15) – konwencja GCM big-endian.
+
+    Działanie:
+      - Iterujemy po 128 bitach Y od MSB (bit 127 liczby) do LSB (bit 0),
+        czyli od współczynnika x^127 do x^0.
+      - Z ^= V gdy odpowiedni bit Y = 1.
+      - V przesuwane w prawo (dzielenie przez x); jeśli odpadł bit LSB (x^0),
+        wykonujemy redukcję: V ^= R = 0xE1 << 120.
+
+    Parametry:
+        X, Y: elementy GF(2^128) jako 128-bitowe liczby całkowite (big-endian)
+
+    Zwraca:
+        Wynik mnożenia X * Y w GF(2^128).
+    """
+    R = 0xE1 << 120  # Wielomian redukujący bez bitu x^128
+    Z = 0
+    V = X
+    for i in range(128):
+        # Bit i Y, iterując od MSB (bit 127) do LSB (bit 0)
+        if (Y >> (127 - i)) & 1:
+            Z ^= V
+        # Przesunięcie V w prawo o 1 (mnożenie przez x^-1 mod p(x))
+        lsb_V = V & 1
+        V >>= 1
+        if lsb_V:
+            V ^= R
+    return Z
+
+
+def ghash(H: bytes, aad: bytes, ciphertext: bytes) -> bytes:
+    """
+    Funkcja GHASH – rdzeń weryfikacji integralności w trybie GCM.
+
+    Oblicza tag uwierzytelniający na podstawie:
+      - klucza H (zaszyfrowany blok zerowy),
+      - danych dodatkowych (AAD – Additional Authenticated Data),
+      - szyfrogramu.
+
+    Algorytm zgodny ze specyfikacją NIST SP 800-38D, sekcja 6.4.
+
+    Parametry:
+        H          : 16-bajtowy klucz GHASH = AES_K(0^128)
+        aad        : dane dodatkowe (mogą być puste)
+        ciphertext : zaszyfrowane dane
+
+    Zwraca:
+        16-bajtowy wynik GHASH (przed finalnym XOR z E(K, Y0)).
+    """
+    H_int = _bytes_to_int(H)
+
+    def _pad_to_block(data: bytes) -> bytes:
+        """Dopełnia dane zerami do wielokrotności 16 bajtów."""
+        rem = len(data) % 16
+        return data + b'\x00' * (16 - rem) if rem else data
+
+    tag = 0  # X_0 = 0^128
+
+    # Krok 1: przetwarzanie AAD
+    padded_aad = _pad_to_block(aad)
+    for i in range(0, len(padded_aad), 16):
+        block = _bytes_to_int(padded_aad[i:i + 16])
+        tag = gcm_gmul(tag ^ block, H_int)
+
+    # Krok 2: przetwarzanie szyfrogramu
+    padded_ct = _pad_to_block(ciphertext)
+    for i in range(0, len(padded_ct), 16):
+        block = _bytes_to_int(padded_ct[i:i + 16])
+        tag = gcm_gmul(tag ^ block, H_int)
+
+    # Krok 3: blok długości len(AAD) || len(ciphertext) w bitach (każda 8 bajtów)
+    len_block = (len(aad) * 8).to_bytes(8, 'big') + (len(ciphertext) * 8).to_bytes(8, 'big')
+    tag = gcm_gmul(tag ^ _bytes_to_int(len_block), H_int)
+
+    return _int_to_bytes(tag)

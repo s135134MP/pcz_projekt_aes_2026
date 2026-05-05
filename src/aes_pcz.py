@@ -174,8 +174,130 @@ class AES_PCZ:
 
     return self._prepare_output(result)
 
-  def encrypt(self, bytes, counter=0, nonce=""):
-    data = self._validate_bytes_input(bytes, "Plaintext")
+  # ---------------------------------------------------------------------------
+  # GCM – szyfrowanie z uwierzytelnianiem
+  # ---------------------------------------------------------------------------
+
+  def _gcm_generate_iv(self):
+    """Generuje losowy 96-bitowy (12-bajtowy) IV dla GCM."""
+    self.iv = os.urandom(12)
+
+  def _gcm_counter_block(self, counter: int) -> bytes:
+    """
+    Buduje 128-bitowy blok licznika GCM:
+      J_i = IV (96 bitów) || counter (32 bity, big-endian)
+
+    Parametry:
+        counter: wartość licznika (J0 = 1, kolejne bloki = 2, 3, …)
+
+    Zwraca:
+        16-bajtowy blok licznika.
+    """
+    return self.iv + counter.to_bytes(4, 'big')
+
+  def _gcm_compute_H(self) -> bytes:
+    """
+    Oblicza klucz GHASH: H = AES_K(0^128).
+    H jest używany jako element GF(2^128) przez funkcję GHASH.
+
+    Zwraca:
+        16-bajtowy klucz H.
+    """
+    return self._encrypt_counter_block(b'\x00' * 16)
+
+  def _encrypt_gcm(self, aad: bytes = b'') -> tuple[bytes, bytes, bytes]:
+    """
+    Szyfrowanie w trybie GCM (Galois/Counter Mode).
+
+    Schemat działania:
+      1. H = AES_K(0^128)                          – klucz GHASH
+      2. J0 = IV || 0x00000001                     – blok bazowy licznika
+      3. E0 = AES_K(J0)                            – do ochrony tagu
+      4. Dla i = 1..n: C_i = P_i XOR AES_K(J_i)  – szyfrowanie CTR od J1
+      5. T = GHASH(H, AAD, C) XOR E0              – tag uwierzytelniający
+
+    Parametry:
+        aad: Additional Authenticated Data (dane uwierzytelniane, nie szyfrowane)
+
+    Zwraca:
+        (ciphertext, iv, tag) – szyfrogram, IV oraz 16-bajtowy tag GCM.
+    """
+    H = self._gcm_compute_H()
+
+    # J0 = IV || 1  (counter = 1 dla bloku bazowego)
+    J0 = self._gcm_counter_block(1)
+    E0 = self._encrypt_counter_block(J0)  # AES_K(J0) – służy do XOR z tagiem
+
+    # Szyfrowanie CTR: licznik startuje od 2 (J1 = IV || 2, J2 = IV || 3, …)
+    encrypted_blocks = []
+    counter = 2
+    for block in self.blocks:
+      Ji = self._gcm_counter_block(counter)
+      keystream = self._encrypt_counter_block(Ji)
+      # XOR tylko tyle bajtów ile ma blok (ostatni blok może być krótszy)
+      encrypted_block = bytes(a ^ b for a, b in zip(block, keystream))
+      encrypted_blocks.append(encrypted_block)
+      counter += 1
+
+    ciphertext = b''.join(encrypted_blocks)
+
+    # GHASH(H, AAD, C) XOR E(K, J0)
+    ghash_result = tr.ghash(H, aad, ciphertext)
+    tag = bytes(a ^ b for a, b in zip(ghash_result, E0))
+
+    return ciphertext, self.iv, tag
+
+  def _decrypt_gcm(self, aad: bytes = b'', tag: bytes = b'') -> bytes:
+    """
+    Deszyfrowanie i weryfikacja integralności w trybie GCM.
+
+    Schemat działania:
+      1. H = AES_K(0^128)
+      2. J0 = IV || 0x00000001
+      3. E0 = AES_K(J0)
+      4. T' = GHASH(H, AAD, C) XOR E0   – obliczenie oczekiwanego tagu
+      5. Porównanie T' z otrzymanym tagiem (constant-time)
+      6. Deszyfrowanie CTR (identyczne jak szyfrowanie)
+
+    Parametry:
+        aad : Additional Authenticated Data (te same co przy szyfrowaniu)
+        tag : 16-bajtowy tag uwierzytelniający otrzymany razem z szyfrogramem
+
+    Zwraca:
+        Odszyfrowany plaintext.
+
+    Wyjątki:
+        ValueError – jeśli tag jest niepoprawny (naruszenie integralności).
+    """
+    H = self._gcm_compute_H()
+
+    J0 = self._gcm_counter_block(1)
+    E0 = self._encrypt_counter_block(J0)
+
+    # Ciphertext = wszystkie bloki złączone
+    ciphertext = b''.join(self.blocks)
+
+    # Weryfikacja tagu przed deszyfrowaniem (fail-fast)
+    ghash_result = tr.ghash(H, aad, ciphertext)
+    expected_tag = bytes(a ^ b for a, b in zip(ghash_result, E0))
+
+    # Porównanie constant-time (ochrona przed timing attacks)
+    if not _constant_time_compare(expected_tag, tag):
+      raise ValueError("GCM authentication tag mismatch – data integrity compromised!")
+
+    # Deszyfrowanie CTR (licznik startuje od 2, identycznie jak przy szyfrowaniu)
+    decrypted_blocks = []
+    counter = 2
+    for block in self.blocks:
+      Ji = self._gcm_counter_block(counter)
+      keystream = self._encrypt_counter_block(Ji)
+      decrypted_block = bytes(a ^ b for a, b in zip(block, keystream))
+      decrypted_blocks.append(decrypted_block)
+      counter += 1
+
+    return b''.join(decrypted_blocks)
+
+  def encrypt(self, bytes, counter = 0, nonce = "", aad: bytes = b'', iv: bytes = b''):
 
     if self.mode == "ECB":
       self._prepare_data(data, add_pad=True)
@@ -197,18 +319,56 @@ class AES_PCZ:
     else:
       raise NotImplementedError("Encryption is not implemented for mode: " + self.mode)
 
+    if self.mode == "GCM":
+      # GCM działa bez paddingu – szyfruje dokładną ilość bajtów
+      self._prepare_data(bytes, add_pad=False)
+
+      if iv != b'':
+        if len(iv) != 12:
+          raise ValueError("GCM IV must be exactly 12 bytes")
+        self.iv = iv
+      else:
+        self._gcm_generate_iv()
+
+      result = self._encrypt_gcm(aad)
+
     return result
 
-  def decrypt(self, bytes, nonce=""):
-    data = self._validate_bytes_input(bytes, "Ciphertext")
-    self._prepare_data_decrypt(data)
+
+  def decrypt(self, bytes, nonce = "", aad: bytes = b'', tag: bytes = b'', iv: bytes = b''):
+    self._prepare_data_decrypt(bytes)
 
     if self.mode == "ECB":
       result = self._decrypt_ecb()
 
-    elif self.mode == "CTR":
-      raise NotImplementedError("CTR decryption is not implemented")
-    else:
-      raise NotImplementedError("Decryption is not implemented for mode: " + self.mode)
+    if self.mode == "CTR":
+      raise NotImplementedError("TODO")
 
+    if self.mode == "GCM":
+      if len(iv) != 12:
+        raise ValueError("GCM IV must be exactly 12 bytes")
+      if len(tag) != 16:
+        raise ValueError("GCM tag must be exactly 16 bytes")
+      self.iv = iv
+      result = self._decrypt_gcm(aad, tag)
+    
     return result
+
+
+# ---------------------------------------------------------------------------
+# Funkcja pomocnicza – porównanie stałoczasowe
+# ---------------------------------------------------------------------------
+
+def _constant_time_compare(a: bytes, b: bytes) -> bool:
+  """
+  Porównuje dwa ciągi bajtów w czasie stałym (niezależnym od zawartości).
+  Zabezpiecza przed atakami typu timing attack na weryfikację tagu GCM.
+
+  Zwraca True tylko gdy a == b i oba mają tę samą długość.
+  """
+  if len(a) != len(b):
+    return False
+  result = 0
+  for x, y in zip(a, b):
+    result |= x ^ y
+  return result == 0
