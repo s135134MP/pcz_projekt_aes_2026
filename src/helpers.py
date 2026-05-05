@@ -1,10 +1,18 @@
+def validate_aes_key(key):
+    if not isinstance(key, (bytes, bytearray)):
+        raise TypeError("AES key must be bytes-like")
+    normalized_key = bytes(key)
+    if len(normalized_key) not in AES_ROUNDS:
+        raise ValueError("AES key must be 16, 24, or 32 bytes long")
+    return normalized_key
+
+
 def get_round_number(key):
-    keySize = len(key) * 8
-    if keySize == 128:
-        return 10
-    elif keySize == 192:
-        return 12
-    elif keySize == 256:
-        return 14
-    else:
-        raise ValueError("Wrong key size")
+    normalized_key = validate_aes_key(key)
+    return AES_ROUNDS[len(normalized_key)]
+
+AES_ROUNDS = {
+    16: 10,
+    24: 12,
+    32: 14,
+}
