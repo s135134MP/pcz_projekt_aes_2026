@@ -174,6 +174,72 @@ class AES_PCZ:
 
     return self._prepare_output(result)
 
+  def _cbc_generate_iv(self):
+    self.iv = os.urandom(16)
+
+  def _encrypt_cbc(self):
+    round_keys = tr.key_schedule(self.key)
+    n_r = h.get_round_number(self.key)
+
+    encrypted_blocks = []
+    previous_block = self.iv
+
+    for block in self.blocks:
+      xored_block = bytes(a ^ b for a, b in zip(block, previous_block))
+
+      state = tr.bytes_to_state(xored_block)
+      state = tr.add_round_key(state, round_keys[0])
+
+      for round in range(1, n_r):
+        state = tr.sub_bytes(state)
+        state = tr.shift_rows(state)
+        state = tr.mix_columns(state)
+        state = tr.add_round_key(state, round_keys[round])
+
+      state = tr.sub_bytes(state)
+      state = tr.shift_rows(state)
+      state = tr.add_round_key(state, round_keys[n_r])
+
+      encrypted_block = tr.state_to_bytes(state)
+
+      encrypted_blocks.append(encrypted_block)
+      previous_block = encrypted_block
+
+    return b''.join(encrypted_blocks), self.iv
+
+  def _decrypt_cbc(self):
+    round_keys = tr.key_schedule(self.key)
+    n_r = h.get_round_number(self.key)
+
+    decrypted_blocks = []
+    previous_block = self.iv
+
+    for block in self.blocks:
+      state = tr.bytes_to_state(block)
+      state = tr.add_round_key(state, round_keys[n_r])
+
+      for round in range(n_r - 1, 0, -1):
+        state = tr.inv_shift_rows(state)
+        state = tr.inv_sub_bytes(state)
+        state = tr.add_round_key(state, round_keys[round])
+        state = tr.inv_mix_columns(state)
+
+      state = tr.inv_shift_rows(state)
+      state = tr.inv_sub_bytes(state)
+      state = tr.add_round_key(state, round_keys[0])
+
+      decrypted_block = tr.state_to_bytes(state)
+
+      # XOR z poprzednim ciphertextem / IV
+      plaintext_block = bytes(a ^ b for a, b in zip(decrypted_block, previous_block))
+
+      decrypted_blocks.append(plaintext_block)
+
+      previous_block = block
+
+    result = b''.join(decrypted_blocks)
+
+    return self._prepare_output(result)
   # ---------------------------------------------------------------------------
   # GCM – szyfrowanie z uwierzytelnianiem
   # ---------------------------------------------------------------------------
@@ -315,10 +381,8 @@ class AES_PCZ:
         self._generate_nonce()
 
       result = self._encrypt_ctr(counter)
-    else:
-      raise NotImplementedError("Encryption is not implemented for mode: " + self.mode)
-
-    if self.mode == "GCM":
+    
+    elif self.mode == "GCM":
       # GCM działa bez paddingu – szyfruje dokładną ilość bajtów
       self._prepare_data(bytes, add_pad=False)
 
@@ -331,6 +395,21 @@ class AES_PCZ:
 
       result = self._encrypt_gcm(aad)
 
+    elif self.mode == "CBC":
+      self._prepare_data(bytes, add_pad=True)
+
+      if iv != b'':
+        if len(iv) != 16:
+          raise ValueError("CBC IV must be exactly 16 bytes")
+        self.iv = iv
+      else:
+        self._cbc_generate_iv()
+
+      result = self._encrypt_cbc()
+
+    else:
+      raise NotImplementedError("Encryption is not implemented for mode: " + self.mode)
+
     return result
 
 
@@ -340,16 +419,26 @@ class AES_PCZ:
     if self.mode == "ECB":
       result = self._decrypt_ecb()
 
-    if self.mode == "CTR":
+    elif self.mode == "CTR":
       raise NotImplementedError("TODO")
 
-    if self.mode == "GCM":
+    elif self.mode == "GCM":
       if len(iv) != 12:
         raise ValueError("GCM IV must be exactly 12 bytes")
       if len(tag) != 16:
         raise ValueError("GCM tag must be exactly 16 bytes")
       self.iv = iv
       result = self._decrypt_gcm(aad, tag)
+    
+    elif self.mode == "CBC":
+      if len(iv) != 16:
+        raise ValueError("CBC IV must be exactly 16 bytes")
+
+      self.iv = iv
+      result = self._decrypt_cbc()
+
+    else:
+      raise NotImplementedError("Decryption is not implemented for mode: " + self.mode)
     
     return result
 

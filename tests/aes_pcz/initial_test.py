@@ -36,6 +36,25 @@ def main ():
     print("AES_CTR FAILED:", encrypt_result.hex())
 
 
+  key = b"1234567890abcdef"
+  plaintext = b"Hello AES CBC Mode!"
+
+  aes_cbc = AES_PCZ("CBC", key)
+  ciphertext, iv = aes_cbc.encrypt(plaintext)
+
+  print("Ciphertext:", ciphertext.hex())
+  print("IV:", iv.hex())
+
+  aes_dec = AES_PCZ("CBC", key)
+
+  decrypted = aes_dec.decrypt(ciphertext, iv=iv)
+
+  if(plaintext == decrypted):
+    print("AES_CBC PASSED:", decrypted)
+  else:
+    print("AES_CBC FAILED:", decrypted)
+
+
 
   # try:
   #   aes_pcz2 = AES_PCZ(mode="Test")
