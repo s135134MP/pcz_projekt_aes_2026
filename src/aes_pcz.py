@@ -148,7 +148,7 @@ class AES_PCZ:
 
     return (result, self.nonce)
 
-  def _decrypt_ecb(self):
+  def _decrypt_ecb(self, pad_data = True):
     round_keys = tr.key_schedule(self.key)
     n_r = h.get_round_number(self.key)
 
@@ -172,7 +172,10 @@ class AES_PCZ:
 
     result = b''.join(decrypted_blocks)
 
-    return self._prepare_output(result)
+    if pad_data:
+      return self._prepare_output(result)
+    else:
+      return result
 
   def _cbc_generate_iv(self):
     self.iv = os.urandom(16)
@@ -207,7 +210,7 @@ class AES_PCZ:
 
     return b''.join(encrypted_blocks), self.iv
 
-  def _decrypt_cbc(self):
+  def _decrypt_cbc(self, pad_data = True):
     round_keys = tr.key_schedule(self.key)
     n_r = h.get_round_number(self.key)
 
@@ -239,7 +242,11 @@ class AES_PCZ:
 
     result = b''.join(decrypted_blocks)
 
-    return self._prepare_output(result)
+    if pad_data: 
+      return self._prepare_output(result)
+    else:
+      return result
+
   # ---------------------------------------------------------------------------
   # GCM – szyfrowanie z uwierzytelnianiem
   # ---------------------------------------------------------------------------
@@ -363,10 +370,13 @@ class AES_PCZ:
 
     return b''.join(decrypted_blocks)
 
-  def encrypt(self, bytes, counter = 0, nonce = "", aad: bytes = b'', iv: bytes = b''):
+  def encrypt(self, bytes, counter = 0, nonce = "", aad: bytes = b'', iv: bytes = b'', add_pad = True, unified_return=False):
     if self.mode == "ECB":
-      self._prepare_data(bytes, add_pad=True)
+      self._prepare_data(bytes, add_pad=add_pad)
       result = self._encrypt_ecb()
+
+      if unified_return: 
+        result = (result, 0, 0)
 
     elif self.mode == "CTR":
       self._prepare_data(bytes, add_pad=False)
@@ -381,6 +391,9 @@ class AES_PCZ:
         self._generate_nonce()
 
       result = self._encrypt_ctr(counter)
+
+      if unified_return:
+        result = (result[0], result[1], 0)
     
     elif self.mode == "GCM":
       # GCM działa bez paddingu – szyfruje dokładną ilość bajtów
@@ -396,11 +409,11 @@ class AES_PCZ:
       result = self._encrypt_gcm(aad)
 
     elif self.mode == "CBC":
-      self._prepare_data(bytes, add_pad=True)
+      self._prepare_data(bytes, add_pad=add_pad)
 
       if iv != b'':
         if len(iv) != 16:
-          raise ValueError("CBC IV must be exactly 16 bytes")
+          raise ValueError("CBC IV must be exactly 16 bytes. Found: " + str(len(iv)))
         self.iv = iv
       else:
         self._cbc_generate_iv()
@@ -413,11 +426,11 @@ class AES_PCZ:
     return result
 
 
-  def decrypt(self, bytes, nonce = "", aad: bytes = b'', tag: bytes = b'', iv: bytes = b''):
+  def decrypt(self, bytes, nonce = "", aad: bytes = b'', tag: bytes = b'', iv: bytes = b'', pad_data = True):
     self._prepare_data_decrypt(bytes)
 
     if self.mode == "ECB":
-      result = self._decrypt_ecb()
+      result = self._decrypt_ecb(pad_data=pad_data)
 
     elif self.mode == "CTR":
       raise NotImplementedError("TODO")
@@ -435,7 +448,7 @@ class AES_PCZ:
         raise ValueError("CBC IV must be exactly 16 bytes")
 
       self.iv = iv
-      result = self._decrypt_cbc()
+      result = self._decrypt_cbc(pad_data=pad_data)
 
     else:
       raise NotImplementedError("Decryption is not implemented for mode: " + self.mode)

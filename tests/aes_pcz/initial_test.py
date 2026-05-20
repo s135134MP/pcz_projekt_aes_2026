@@ -12,8 +12,8 @@ def main ():
 
   for label, key in ecb_cases:
     aes_pcz = AES_PCZ(mode="ECB", key=key)
-    encrypt_result = aes_pcz.encrypt(plaintext)
-    decrypt_result = aes_pcz.decrypt(encrypt_result)
+    encrypt_result = aes_pcz.encrypt(plaintext, add_pad=True)
+    decrypt_result = aes_pcz.decrypt(encrypt_result, pad_data=True)
 
     if(decrypt_result == plaintext):
       print(label, "ECB PASSED:", decrypt_result.hex(), "==", plaintext.hex());
@@ -40,19 +40,19 @@ def main ():
   plaintext = b"Hello AES CBC Mode!"
 
   aes_cbc = AES_PCZ("CBC", key)
-  ciphertext, iv = aes_cbc.encrypt(plaintext)
+  ciphertext, iv = aes_cbc.encrypt(plaintext, add_pad=True)
 
   print("Ciphertext:", ciphertext.hex())
   print("IV:", iv.hex())
 
   aes_dec = AES_PCZ("CBC", key)
 
-  decrypted = aes_dec.decrypt(ciphertext, iv=iv)
+  decrypted = aes_dec.decrypt(ciphertext, iv=iv, pad_data=True)
 
   if(plaintext == decrypted):
     print("AES_CBC PASSED:", decrypted)
   else:
-    print("AES_CBC FAILED:", decrypted)
+    print("AES_CBC FAILED:", decrypted, plaintext)
 
 
 
