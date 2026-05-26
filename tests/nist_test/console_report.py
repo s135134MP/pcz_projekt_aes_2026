@@ -122,5 +122,16 @@ def print_summary(results):
     print(_render_table(failure_columns, failed_results))
 
 
+def print_final_summary(results):
+  passed_results = [item for item in results if item["status"] == "PASS"]
+  failed_results = [item for item in results if item["status"] != "PASS"]
+
+  print()
+  print("Final summary")
+  print("Executed tests:", len(results))
+  print("Passed:", len(passed_results))
+  print("Failed:", len(failed_results))
+
+
 # --- Manual Test ---
 # print_test_result({"status":"PASS","key_size":128,"mode":"ECB","operation":"Encryption","sample_name":"sample.bin","duration":0.001,"peak_bytes":1024,"validation_result":"PASS"})

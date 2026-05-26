@@ -8,7 +8,7 @@ if str(PROJECT_ROOT) not in sys.path:
   sys.path.insert(0, str(PROJECT_ROOT))
 
 from tests.nist_test import cbc_tests, ctr_tests, ecb_tests
-from tests.nist_test.console_report import print_summary, print_test_result
+from tests.nist_test.console_report import print_final_summary, print_summary, print_test_result
 
 
 MODE_RUNNERS = {
@@ -32,6 +32,7 @@ def run_all_tests(selected_modes=None):
     results.extend(mode_results)
 
   print_summary(results)
+  print_final_summary(results)
   return results
 
 
