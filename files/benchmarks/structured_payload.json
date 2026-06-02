@@ -1,0 +1,452 @@
+{
+  "project": "pcz_projekt_aes_2026",
+  "fixture": "structured benchmark",
+  "version": 2,
+  "records": [
+    {
+      "id": 1,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": false,
+      "score": 3.7,
+      "tags": [
+        "tag-1",
+        "bucket-1"
+      ]
+    },
+    {
+      "id": 2,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": true,
+      "score": 7.4,
+      "tags": [
+        "tag-2",
+        "bucket-2"
+      ]
+    },
+    {
+      "id": 3,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": false,
+      "score": 11.1,
+      "tags": [
+        "tag-3",
+        "bucket-3"
+      ]
+    },
+    {
+      "id": 4,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": true,
+      "score": 14.8,
+      "tags": [
+        "tag-4",
+        "bucket-4"
+      ]
+    },
+    {
+      "id": 5,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": false,
+      "score": 18.5,
+      "tags": [
+        "tag-0",
+        "bucket-5"
+      ]
+    },
+    {
+      "id": 6,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": true,
+      "score": 22.2,
+      "tags": [
+        "tag-1",
+        "bucket-6"
+      ]
+    },
+    {
+      "id": 7,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": false,
+      "score": 25.9,
+      "tags": [
+        "tag-2",
+        "bucket-0"
+      ]
+    },
+    {
+      "id": 8,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": true,
+      "score": 29.6,
+      "tags": [
+        "tag-3",
+        "bucket-1"
+      ]
+    },
+    {
+      "id": 9,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": false,
+      "score": 33.3,
+      "tags": [
+        "tag-4",
+        "bucket-2"
+      ]
+    },
+    {
+      "id": 10,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": true,
+      "score": 37.0,
+      "tags": [
+        "tag-0",
+        "bucket-3"
+      ]
+    },
+    {
+      "id": 11,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": false,
+      "score": 40.7,
+      "tags": [
+        "tag-1",
+        "bucket-4"
+      ]
+    },
+    {
+      "id": 12,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": true,
+      "score": 44.4,
+      "tags": [
+        "tag-2",
+        "bucket-5"
+      ]
+    },
+    {
+      "id": 13,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": false,
+      "score": 48.1,
+      "tags": [
+        "tag-3",
+        "bucket-6"
+      ]
+    },
+    {
+      "id": 14,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": true,
+      "score": 51.8,
+      "tags": [
+        "tag-4",
+        "bucket-0"
+      ]
+    },
+    {
+      "id": 15,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": false,
+      "score": 55.5,
+      "tags": [
+        "tag-0",
+        "bucket-1"
+      ]
+    },
+    {
+      "id": 16,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": true,
+      "score": 59.2,
+      "tags": [
+        "tag-1",
+        "bucket-2"
+      ]
+    },
+    {
+      "id": 17,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": false,
+      "score": 62.9,
+      "tags": [
+        "tag-2",
+        "bucket-3"
+      ]
+    },
+    {
+      "id": 18,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": true,
+      "score": 66.6,
+      "tags": [
+        "tag-3",
+        "bucket-4"
+      ]
+    },
+    {
+      "id": 19,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": false,
+      "score": 70.3,
+      "tags": [
+        "tag-4",
+        "bucket-5"
+      ]
+    },
+    {
+      "id": 20,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": true,
+      "score": 74.0,
+      "tags": [
+        "tag-0",
+        "bucket-6"
+      ]
+    },
+    {
+      "id": 21,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": false,
+      "score": 77.7,
+      "tags": [
+        "tag-1",
+        "bucket-0"
+      ]
+    },
+    {
+      "id": 22,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": true,
+      "score": 81.4,
+      "tags": [
+        "tag-2",
+        "bucket-1"
+      ]
+    },
+    {
+      "id": 23,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": false,
+      "score": 85.1,
+      "tags": [
+        "tag-3",
+        "bucket-2"
+      ]
+    },
+    {
+      "id": 24,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": true,
+      "score": 88.8,
+      "tags": [
+        "tag-4",
+        "bucket-3"
+      ]
+    },
+    {
+      "id": 25,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": false,
+      "score": 92.5,
+      "tags": [
+        "tag-0",
+        "bucket-4"
+      ]
+    },
+    {
+      "id": 26,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": true,
+      "score": 96.2,
+      "tags": [
+        "tag-1",
+        "bucket-5"
+      ]
+    },
+    {
+      "id": 27,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": false,
+      "score": 99.9,
+      "tags": [
+        "tag-2",
+        "bucket-6"
+      ]
+    },
+    {
+      "id": 28,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": true,
+      "score": 3.6,
+      "tags": [
+        "tag-3",
+        "bucket-0"
+      ]
+    },
+    {
+      "id": 29,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": false,
+      "score": 7.3,
+      "tags": [
+        "tag-4",
+        "bucket-1"
+      ]
+    },
+    {
+      "id": 30,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": true,
+      "score": 11.0,
+      "tags": [
+        "tag-0",
+        "bucket-2"
+      ]
+    },
+    {
+      "id": 31,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": false,
+      "score": 14.7,
+      "tags": [
+        "tag-1",
+        "bucket-3"
+      ]
+    },
+    {
+      "id": 32,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": true,
+      "score": 18.4,
+      "tags": [
+        "tag-2",
+        "bucket-4"
+      ]
+    },
+    {
+      "id": 33,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": false,
+      "score": 22.1,
+      "tags": [
+        "tag-3",
+        "bucket-5"
+      ]
+    },
+    {
+      "id": 34,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": true,
+      "score": 25.8,
+      "tags": [
+        "tag-4",
+        "bucket-6"
+      ]
+    },
+    {
+      "id": 35,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": false,
+      "score": 29.5,
+      "tags": [
+        "tag-0",
+        "bucket-0"
+      ]
+    },
+    {
+      "id": 36,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": true,
+      "score": 33.2,
+      "tags": [
+        "tag-1",
+        "bucket-1"
+      ]
+    },
+    {
+      "id": 37,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": false,
+      "score": 36.9,
+      "tags": [
+        "tag-2",
+        "bucket-2"
+      ]
+    },
+    {
+      "id": 38,
+      "mode_hint": "GCM",
+      "key_size": 256,
+      "active": true,
+      "score": 40.6,
+      "tags": [
+        "tag-3",
+        "bucket-3"
+      ]
+    },
+    {
+      "id": 39,
+      "mode_hint": "ECB",
+      "key_size": 128,
+      "active": false,
+      "score": 44.3,
+      "tags": [
+        "tag-4",
+        "bucket-4"
+      ]
+    },
+    {
+      "id": 40,
+      "mode_hint": "CTR",
+      "key_size": 192,
+      "active": true,
+      "score": 48.0,
+      "tags": [
+        "tag-0",
+        "bucket-5"
+      ]
+    }
+  ],
+  "notes": {
+    "deterministic": true,
+    "seed": 20260512,
+    "description": "Generated locally without external downloads."
+  }
+}
