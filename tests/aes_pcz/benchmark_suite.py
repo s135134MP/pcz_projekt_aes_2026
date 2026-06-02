@@ -14,10 +14,11 @@ from utils.path import path
 
 try:
   from Crypto.Cipher import AES as CryptoAES
-  from Crypto.Util.Padding import pad
+  from Crypto.Util.Padding import pad, unpad
 except ImportError:  # pragma: no cover - optional dependency in runtime
   CryptoAES = None
   pad = None
+  unpad = None
 
 
 # Deterministic benchmark configuration used across the whole suite.
@@ -277,6 +278,31 @@ def _reference_encrypt(mode, key, data, payload):
   return None
 
 
+def _reference_decrypt(mode, key, payload):
+  if CryptoAES is None or unpad is None:
+    return None
+
+  if mode == "ECB":
+    cipher = CryptoAES.new(key, CryptoAES.MODE_ECB)
+    return unpad(cipher.decrypt(payload["ciphertext"]), CryptoAES.block_size)
+
+  if mode == "CTR":
+    cipher = CryptoAES.new(
+      key,
+      CryptoAES.MODE_CTR,
+      nonce=payload["nonce"],
+      initial_value=payload["counter"],
+    )
+    return cipher.decrypt(payload["ciphertext"])
+
+  if mode == "GCM":
+    cipher = CryptoAES.new(key, CryptoAES.MODE_GCM, nonce=payload["iv"])
+    cipher.update(payload["aad"])
+    return cipher.decrypt_and_verify(payload["ciphertext"], payload["tag"])
+
+  return None
+
+
 def _compatibility_result(mode, key, plaintext, payload):
   reference_payload = _reference_encrypt(mode, key, plaintext, payload)
 
@@ -295,6 +321,81 @@ def _compatibility_result(mode, key, plaintext, payload):
     return "PASS", ""
 
   return "FAIL", "ciphertext mismatch"
+
+
+def _compatibility_with_project(mode, key, plaintext, payload, file_name):
+  try:
+    project_payload = _encrypt_with_project_aes(mode, key, plaintext, file_name)
+  except Exception as exc:  # pragma: no cover - exercised through integration flows
+    return "N/A", f"project comparison unavailable ({type(exc).__name__})"
+
+  if mode == "GCM":
+    if (
+      project_payload["ciphertext"] == payload["ciphertext"]
+      and project_payload["tag"] == payload["tag"]
+    ):
+      return "PASS", ""
+    return "FAIL", "ciphertext/tag mismatch"
+
+  if project_payload["ciphertext"] == payload["ciphertext"]:
+    return "PASS", ""
+
+  return "FAIL", "ciphertext mismatch"
+
+
+def _encrypt_with_pycryptodome(mode, key, data, file_name):
+  if CryptoAES is None or pad is None:
+    raise RuntimeError("pycryptodome unavailable")
+
+  normalized_data = bytes(data)
+
+  if mode == "ECB":
+    cipher = CryptoAES.new(key, CryptoAES.MODE_ECB)
+    return {
+      "ciphertext": cipher.encrypt(pad(normalized_data, CryptoAES.block_size)),
+      "adapter": "pycryptodome",
+    }
+
+  if mode == "CTR":
+    cipher = CryptoAES.new(
+      key,
+      CryptoAES.MODE_CTR,
+      nonce=DEFAULT_CTR_NONCE,
+      initial_value=DEFAULT_CTR_COUNTER,
+    )
+    return {
+      "ciphertext": cipher.encrypt(normalized_data),
+      "nonce": DEFAULT_CTR_NONCE,
+      "counter": DEFAULT_CTR_COUNTER,
+      "adapter": "pycryptodome",
+    }
+
+  if mode == "GCM":
+    aad = _build_gcm_aad(file_name, len(normalized_data))
+    cipher = CryptoAES.new(key, CryptoAES.MODE_GCM, nonce=DEFAULT_GCM_IV)
+    cipher.update(aad)
+    ciphertext, tag = cipher.encrypt_and_digest(normalized_data)
+    return {
+      "ciphertext": ciphertext,
+      "iv": DEFAULT_GCM_IV,
+      "tag": tag,
+      "aad": aad,
+      "adapter": "pycryptodome",
+    }
+
+  raise ValueError("Unsupported AES mode. Found: " + str(mode))
+
+
+def _decrypt_with_pycryptodome(mode, key, payload):
+  if CryptoAES is None or unpad is None:
+    raise RuntimeError("pycryptodome unavailable")
+
+  plaintext = _reference_decrypt(mode, key, payload)
+
+  if plaintext is None:
+    raise ValueError("Unsupported AES mode. Found: " + str(mode))
+
+  return plaintext
 
 
 def _discover_benchmark_files(max_file_size_bytes=DEFAULT_MAX_FILE_SIZE_BYTES):
@@ -339,9 +440,9 @@ def _discover_benchmark_files(max_file_size_bytes=DEFAULT_MAX_FILE_SIZE_BYTES):
   return selected_files, skipped_files
 
 
-def test_file(file_path, mode, key_size):
-  benchmark_path = Path(file_path)
-  result = {
+def _build_result_template(benchmark_path, mode, key_size, implementation):
+  return {
+    "implementation": implementation,
     "mode": mode,
     "key_size": key_size,
     "file_name": benchmark_path.name,
@@ -362,6 +463,11 @@ def test_file(file_path, mode, key_size):
     "error": "",
   }
 
+
+def _test_file_with_runner(file_path, mode, key_size, implementation, encrypt_callable, decrypt_callable, compatibility_callable):
+  benchmark_path = Path(file_path)
+  result = _build_result_template(benchmark_path, mode, key_size, implementation)
+
   if key_size not in DETERMINISTIC_KEYS:
     result["error"] = "Unsupported benchmark key size"
     return result
@@ -380,7 +486,7 @@ def test_file(file_path, mode, key_size):
   result["file_size_bytes"] = len(plaintext)
   key = DETERMINISTIC_KEYS[key_size]
 
-  encryption = _measure_operation(_encrypt_with_project_aes, mode, key, plaintext, benchmark_path.name)
+  encryption = _measure_operation(encrypt_callable, mode, key, plaintext, benchmark_path.name)
   result["encryption_time"] = encryption["duration"]
   result["peak_bytes"] = max(result["peak_bytes"], encryption["peak_bytes"])
 
@@ -396,7 +502,7 @@ def test_file(file_path, mode, key_size):
   result["ciphertext_size_bytes"] = len(payload["ciphertext"])
   result["size_delta_bytes"] = result["ciphertext_size_bytes"] - result["file_size_bytes"]
 
-  decryption = _measure_operation(_decrypt_with_project_aes, mode, key, payload)
+  decryption = _measure_operation(decrypt_callable, mode, key, payload)
   result["decryption_time"] = decryption["duration"]
   result["peak_bytes"] = max(result["peak_bytes"], decryption["peak_bytes"])
   result["total_time"] = result["encryption_time"] + result["decryption_time"]
@@ -415,7 +521,7 @@ def test_file(file_path, mode, key_size):
     result["integrity_status"] = "FAIL"
     result["error"] = "Decrypted data does not match the original input"
 
-  compatibility_status, compatibility_note = _compatibility_result(mode, key, plaintext, payload)
+  compatibility_status, compatibility_note = compatibility_callable(mode, key, plaintext, payload, benchmark_path.name)
   result["compatibility_status"] = compatibility_status
 
   if compatibility_note:
@@ -427,9 +533,38 @@ def test_file(file_path, mode, key_size):
   return result
 
 
+def test_file(file_path, mode, key_size):
+  return _test_file_with_runner(
+    file_path,
+    mode,
+    key_size,
+    "Project AES",
+    _encrypt_with_project_aes,
+    _decrypt_with_project_aes,
+    lambda current_mode, key, plaintext, payload, file_name: _compatibility_result(current_mode, key, plaintext, payload),
+  )
+
+
+def test_file_pycryptodome(file_path, mode, key_size):
+  return _test_file_with_runner(
+    file_path,
+    mode,
+    key_size,
+    "pycryptodome",
+    _encrypt_with_pycryptodome,
+    _decrypt_with_pycryptodome,
+    _compatibility_with_project,
+  )
+
+
 def benchmark_mode(mode, key_size, max_file_size_bytes=DEFAULT_MAX_FILE_SIZE_BYTES):
   benchmark_files, _ = _discover_benchmark_files(max_file_size_bytes=max_file_size_bytes)
   return [test_file(file_info["path"], mode, key_size) for file_info in benchmark_files]
+
+
+def benchmark_mode_pycryptodome(mode, key_size, max_file_size_bytes=DEFAULT_MAX_FILE_SIZE_BYTES):
+  benchmark_files, _ = _discover_benchmark_files(max_file_size_bytes=max_file_size_bytes)
+  return [test_file_pycryptodome(file_info["path"], mode, key_size) for file_info in benchmark_files]
 
 
 def _run_validation_checks(sample_file_path):
@@ -558,8 +693,9 @@ def _build_extremes_rows(results):
   ]
 
 
-def _print_results(results, skipped_files, validation_checks):
+def _print_results(project_results, pycryptodome_results, skipped_files, validation_checks):
   detail_columns = [
+    ("implementation", "Impl", str),
     ("mode", "Mode", str),
     ("key_size", "Key", lambda value: f"AES-{value}"),
     ("file_name", "File", str),
@@ -605,18 +741,31 @@ def _print_results(results, skipped_files, validation_checks):
   ]
 
   print("AES benchmark directory:", BENCHMARK_DIR)
-  print("Tested combinations:", len(results))
-  print("Detailed benchmark results")
-  print(_render_table(detail_columns, results))
+  print("Project AES combinations:", len(project_results))
+  print("pycryptodome combinations:", len(pycryptodome_results))
+  print("Detailed benchmark results - Project AES")
+  print(_render_table(detail_columns, project_results))
   print()
-  print("Summary by mode")
-  print(_render_table(summary_columns, _build_summary_rows(results, "mode")))
+  print("Detailed benchmark results - pycryptodome")
+  print(_render_table(detail_columns, pycryptodome_results))
   print()
-  print("Summary by key size")
-  print(_render_table(summary_columns, _build_summary_rows(results, "key_size")))
+  print("Summary by mode - Project AES")
+  print(_render_table(summary_columns, _build_summary_rows(project_results, "mode")))
   print()
-  print("Extremes")
-  print(_render_table(extremes_columns, _build_extremes_rows(results)))
+  print("Summary by mode - pycryptodome")
+  print(_render_table(summary_columns, _build_summary_rows(pycryptodome_results, "mode")))
+  print()
+  print("Summary by key size - Project AES")
+  print(_render_table(summary_columns, _build_summary_rows(project_results, "key_size")))
+  print()
+  print("Summary by key size - pycryptodome")
+  print(_render_table(summary_columns, _build_summary_rows(pycryptodome_results, "key_size")))
+  print()
+  print("Extremes - Project AES")
+  print(_render_table(extremes_columns, _build_extremes_rows(project_results)))
+  print()
+  print("Extremes - pycryptodome")
+  print(_render_table(extremes_columns, _build_extremes_rows(pycryptodome_results)))
   print()
   print("Validation checks")
   print(_render_table(validation_columns, validation_checks))
@@ -630,17 +779,20 @@ def _print_results(results, skipped_files, validation_checks):
 def run_all_benchmarks(max_file_size_bytes=DEFAULT_MAX_FILE_SIZE_BYTES):
   benchmark_files, skipped_files = _discover_benchmark_files(max_file_size_bytes=max_file_size_bytes)
   results = []
+  pycryptodome_results = []
 
   for mode in IMPLEMENTED_MODES:
     for key_size in SUPPORTED_KEY_SIZES:
       for file_info in benchmark_files:
         results.append(test_file(file_info["path"], mode, key_size))
+        pycryptodome_results.append(test_file_pycryptodome(file_info["path"], mode, key_size))
 
   sample_file = BENCHMARK_DIR / "sample_text.txt"
   validation_checks = _run_validation_checks(sample_file)
 
   _print_results(
     results,
+    pycryptodome_results,
     [
       {
         "path": file_info["path"].name,
@@ -655,6 +807,7 @@ def run_all_benchmarks(max_file_size_bytes=DEFAULT_MAX_FILE_SIZE_BYTES):
 
   return {
     "results": results,
+    "pycryptodome_results": pycryptodome_results,
     "validation_checks": validation_checks,
     "skipped_files": skipped_files,
   }
