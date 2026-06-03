@@ -108,8 +108,9 @@ class KATTestUnit:
       else:
         self.decrypt_cases.append(testCase)
     
-  def run_tests(self, print_step_result = False):
-    print("=== ENCRYPT CASES: ")
+  def run_tests(self, print_step_result = False, output = True):
+    if output:
+      print("=== ENCRYPT CASES: ")
 
     for case in self.encrypt_cases:
       result = case.test()
@@ -121,9 +122,9 @@ class KATTestUnit:
 
     percentage = self.passed_encrypt_cases / count * 100;
     
-    print("\tPASSED TESTS: " + str(self.passed_encrypt_cases) + " / " + str(count) + " " + str(percentage) + "%")    
-
-    print("=== DECRYPT CASES: ")
+    if output:
+      print("\tPASSED TESTS: " + str(self.passed_encrypt_cases) + " / " + str(count) + " " + str(percentage) + "%")    
+      print("=== DECRYPT CASES: ")
 
     for case in self.decrypt_cases:
       result = case.test(print_result=print_step_result)
@@ -134,13 +135,15 @@ class KATTestUnit:
     count = len(self.decrypt_cases)
 
     percentage = self.passed_decrypt_cases / count * 100;
+    if output:
+      print("\tPASSED TESTS: " + str(self.passed_decrypt_cases) + " / " + str(count) + " " + str(percentage) + "%")       
 
-    print("\tPASSED TESTS: " + str(self.passed_decrypt_cases) + " / " + str(count) + " " + str(percentage) + "%")    
-    
+
     if self.passed_decrypt_cases + self.passed_encrypt_cases == len(self.encrypt_cases) + len(self.decrypt_cases):
-      return True
+      return (True, self.passed_encrypt_cases, len(self.encrypt_cases), self.passed_decrypt_cases, len(self.decrypt_cases))
     else:
-      return False
+      return (False, self.passed_encrypt_cases, len(self.encrypt_cases), self.passed_decrypt_cases, len(self.decrypt_cases))
+
 
 def main():
   # MODES = ["CBC"]
@@ -167,8 +170,9 @@ def main():
 
   for test in kat_tests:
     print("=============================")
-    print(test.name)
-    result = test.run_tests(print_step_result=False)
+    # print(test.name)
+    (result, passed_encrypt, encrypt_len, passed_decrypt, decrypt_len) = test.run_tests(print_step_result=False, output=False)
+    print(test.name + " encrypt: " + str(passed_encrypt) + "/" + str(encrypt_len) + ", decrypt: " + str(passed_decrypt) + "/" + str(decrypt_len))
     if result:
       passed_count = passed_count + 1
 
